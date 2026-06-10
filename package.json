@@ -1,0 +1,51 @@
+{
+  "name": "dsa-vault",
+  "version": "1.0.0",
+  "description": "Local-first CLI tool for capturing and reviewing coding problems with spaced-repetition",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "dsa-vault": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rimraf dist",
+    "lint": "eslint src tests --ext .ts"
+  },
+  "keywords": [
+    "dsa",
+    "leetcode",
+    "geeksforgeeks",
+    "spaced-repetition",
+    "cli",
+    "coding-problems"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.2.2",
+    "chalk": "^5.6.2",
+    "commander": "^11.1.0",
+    "inquirer": "^9.2.12",
+    "playwright": "^1.40.1",
+    "simple-git": "^3.21.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^18.19.3",
+    "@vitest/coverage-v8": "^1.1.0",
+    "fast-check": "^3.15.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  }
+}
