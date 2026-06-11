@@ -3,6 +3,7 @@ import { initCommand } from './commands/init.js';
 import { captureCommand } from './commands/capture.js';
 import { reviewCommand } from './commands/review.js';
 import { statsCommand } from './commands/stats.js';
+import { mockCommand } from './commands/mock.js';
 import { searchCommand } from './commands/search.js';
 import { listCommand } from './commands/list.js';
 import { configCommand } from './commands/config.js';
@@ -23,6 +24,7 @@ program.addCommand(initCommand);
 program.addCommand(captureCommand);
 program.addCommand(reviewCommand);
 program.addCommand(statsCommand);
+program.addCommand(mockCommand);
 program.addCommand(searchCommand)
   .addCommand(listCommand);
 program.addCommand(configCommand);

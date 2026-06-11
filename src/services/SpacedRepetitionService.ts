@@ -15,35 +15,38 @@ export class SpacedRepetitionService {
     outcome: ReviewOutcome
   ): { nextInterval: number; newEaseFactor: number } {
     let nextInterval: number;
-    let newEaseFactor = easeFactor;
-
+    
+    // Map outcome to Quality (q) from 0 to 5
+    let q: number;
     switch (outcome) {
-      case 'easy':
-        nextInterval = currentInterval * 2.5 * easeFactor;
-        newEaseFactor += 0.15;
-        break;
-      case 'medium':
-        nextInterval = currentInterval * 1.5 * easeFactor;
-        newEaseFactor -= 0.05;
-        break;
-      case 'hard':
-        nextInterval = currentInterval * 1.0;
-        newEaseFactor -= 0.15;
-        break;
-      case 'failed':
-        nextInterval = currentInterval * 1.0;
-        newEaseFactor -= 0.20;
-        break;
-      default:
-        nextInterval = currentInterval;
+      case 'easy': q = 5; break;
+      case 'medium': q = 4; break;
+      case 'hard': q = 3; break;
+      case 'failed': q = 1; break;
+      default: q = 0;
     }
 
-    // Cap maximum interval at 180 days
-    nextInterval = Math.min(Math.max(nextInterval, 1), 180);
+    // Calculate new Ease Factor
+    // Formula: EF' = EF + (0.1 - (5-q) * (0.08 + (5-q) * 0.02))
+    let newEaseFactor = easeFactor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
     
-    // Clamp ease factor between 1.3 and 3.0
-    newEaseFactor = Math.min(Math.max(newEaseFactor, 1.3), 3.0);
+    // Clamp ease factor to minimum 1.3
+    newEaseFactor = Math.max(1.3, newEaseFactor);
 
+    if (q < 3) {
+      // Failed or hard fail: reset interval to 1 day
+      nextInterval = 1;
+    } else {
+      if (currentInterval <= 1) {
+        nextInterval = 6;
+      } else {
+        nextInterval = Math.round(currentInterval * newEaseFactor);
+      }
+    }
+
+    // Cap maximum interval at 365 days (1 year)
+    nextInterval = Math.min(Math.max(nextInterval, 1), 365);
+    
     return { nextInterval, newEaseFactor };
   }
 

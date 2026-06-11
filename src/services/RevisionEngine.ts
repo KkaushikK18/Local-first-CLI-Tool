@@ -59,6 +59,7 @@ export class RevisionEngine {
             language: p.language,
             dateSolved: new Date(p.date_solved),
             status: p.status as any,
+            hint: p.hint || undefined,
           },
           // Notes and solution would need to be loaded from file system if needed
           // For revision engine, we mainly need metadata and stats

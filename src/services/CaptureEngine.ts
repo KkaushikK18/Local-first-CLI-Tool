@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs/promises';
+import inquirer from 'inquirer';
 
 export class CaptureEngine {
   constructor(
@@ -144,6 +145,18 @@ export class CaptureEngine {
     duplicateContext: { existingProblem: any, strategy: 'overwrite' | 'merge' | 'new_version' } | null,
     editorCommand?: string
   ): Promise<string> {
+    const { hint } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'hint',
+        message: 'Would you like to add a quick hint for this problem? (Leave blank to skip)',
+      }
+    ]);
+
+    if (hint && hint.trim().length > 0) {
+      metadata.hint = hint.trim();
+    }
+
     let template = this.storageService.generateNotesTemplate(metadata);
     let originalNotes = '';
 

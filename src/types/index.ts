@@ -42,6 +42,7 @@ export const ProblemMetadataSchema = z.object({
   language: z.string().min(1, 'Language cannot be empty'),
   dateSolved: z.date(),
   status: ProblemStatusSchema.default('solved'),
+  hint: z.string().optional(),
 });
 
 export type ProblemMetadata = z.infer<typeof ProblemMetadataSchema>;

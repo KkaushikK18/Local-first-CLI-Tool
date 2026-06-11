@@ -213,7 +213,8 @@ export class StorageService {
           entry.metadata.language,
           entry.metadata.dateSolved,
           entry.metadata.status,
-          dirPath
+          dirPath,
+          entry.metadata.hint
         );
 
         this.db.insertReview(

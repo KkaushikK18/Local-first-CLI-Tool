@@ -72,6 +72,34 @@ export const reviewCommand = new Command('review')
         
         console.log(chalk.blue('\nTask: Open the file or URL, review your notes/solution, and recall the key insight.'));
 
+        if (problem.metadata.hint) {
+          const { action } = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'action',
+              message: 'Press Enter to reveal outcome menu, or type "h" for a hint:',
+            }
+          ]);
+          if (action.toLowerCase().trim() === 'h') {
+            console.log(chalk.magenta(`\n💡 Hint: ${problem.metadata.hint}\n`));
+            await inquirer.prompt([
+              {
+                type: 'input',
+                name: 'continue',
+                message: 'Press Enter to reveal outcome menu...',
+              }
+            ]);
+          }
+        } else {
+          await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'continue',
+              message: 'Press Enter to reveal outcome menu...',
+            }
+          ]);
+        }
+
         const { outcome } = await inquirer.prompt([
           {
             type: 'list',

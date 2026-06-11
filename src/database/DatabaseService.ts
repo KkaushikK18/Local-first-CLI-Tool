@@ -22,6 +22,7 @@ export interface ProblemRow {
   date_solved: string; // ISO 8601
   status: string;
   file_path: string;
+  hint: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -118,10 +119,18 @@ export class DatabaseService {
         date_solved TEXT NOT NULL,
         status TEXT NOT NULL CHECK(status IN ('solved', 'attempted', 'reviewed')),
         file_path TEXT NOT NULL,
+        hint TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
+
+    // Migration: Add hint column to existing problems table
+    try {
+      this.db.exec(`ALTER TABLE problems ADD COLUMN hint TEXT`);
+    } catch (e) {
+      // Ignore if column already exists
+    }
 
     // Reviews table - stores spaced-repetition data
     this.db.exec(`
@@ -224,9 +233,9 @@ export class DatabaseService {
     this.statements.insertProblem = this.db.prepare(`
       INSERT INTO problems (
         id, platform, title, url, difficulty, tags, topic, 
-        language, date_solved, status, file_path
+        language, date_solved, status, file_path, hint
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(url) DO UPDATE SET
         title = excluded.title,
         difficulty = excluded.difficulty,
@@ -235,6 +244,7 @@ export class DatabaseService {
         language = excluded.language,
         status = excluded.status,
         file_path = excluded.file_path,
+        hint = excluded.hint,
         updated_at = datetime('now')
       RETURNING *
     `);
@@ -243,7 +253,7 @@ export class DatabaseService {
     this.statements.updateProblem = this.db.prepare(`
       UPDATE problems 
       SET title = ?, difficulty = ?, tags = ?, topic = ?, 
-          language = ?, status = ?, file_path = ?,
+          language = ?, status = ?, file_path = ?, hint = ?,
           updated_at = datetime('now')
       WHERE id = ?
     `);
@@ -335,7 +345,8 @@ export class DatabaseService {
     language: string,
     dateSolved: Date,
     status: string,
-    filePath: string
+    filePath: string,
+    hint?: string
   ): ProblemRow {
     const result = this.statements.insertProblem!.get(
       id,
@@ -348,7 +359,8 @@ export class DatabaseService {
       language,
       dateSolved.toISOString(),
       status,
-      filePath
+      filePath,
+      hint || null
     ) as ProblemRow;
 
     return result;
@@ -619,6 +631,87 @@ export class DatabaseService {
     stats.dueCount = dueResult.count;
 
     return stats;
+  }
+
+  /**
+   * Get streak statistics (consecutive days of review)
+   */
+  getStreakStats(): {
+    currentStreak: number;
+    longestStreak: number;
+    totalReviewDays: number;
+  } {
+    const datesResult = this.db.prepare(`
+      SELECT DISTINCT date(review_date) as review_day 
+      FROM review_history 
+      ORDER BY review_day DESC
+    `).all() as { review_day: string }[];
+
+    if (datesResult.length === 0) {
+      return { currentStreak: 0, longestStreak: 0, totalReviewDays: 0 };
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let currentRunningStreak = 0;
+    let previousDate: Date | null = null;
+
+    for (let i = 0; i < datesResult.length; i++) {
+      const currentDateStr = datesResult[i]!.review_day;
+      const currentDate = new Date(currentDateStr);
+
+      if (previousDate === null) {
+        currentRunningStreak = 1;
+      } else {
+        const diffTime = previousDate.getTime() - currentDate.getTime();
+        const diffDays = diffTime / (1000 * 3600 * 24);
+
+        if (diffDays === 1) {
+          currentRunningStreak++;
+        } else {
+          // Streak broken
+          currentRunningStreak = 1;
+        }
+      }
+
+      // Check if this is part of the current active streak
+      if (i === 0 && (currentDateStr === todayStr || currentDateStr === yesterdayStr)) {
+        // We will update currentStreak as long as it's contiguous from today/yesterday
+      }
+      
+      // We calculate currentStreak slightly differently: 
+      // We just iterate forward from index 0 until the gap is > 1
+      if (longestStreak < currentRunningStreak) {
+        longestStreak = currentRunningStreak;
+      }
+
+      previousDate = currentDate;
+    }
+
+    // Recalculate true current streak from the top
+    let trueCurrentStreak = 0;
+    if (datesResult[0]!.review_day === todayStr || datesResult[0]!.review_day === yesterdayStr) {
+      trueCurrentStreak = 1;
+      for (let i = 1; i < datesResult.length; i++) {
+        const d1 = new Date(datesResult[i-1]!.review_day);
+        const d2 = new Date(datesResult[i]!.review_day);
+        const diff = (d1.getTime() - d2.getTime()) / (1000 * 3600 * 24);
+        if (diff === 1) {
+          trueCurrentStreak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return {
+      currentStreak: trueCurrentStreak,
+      longestStreak: Math.max(longestStreak, trueCurrentStreak),
+      totalReviewDays: datesResult.length
+    };
   }
 
   /**

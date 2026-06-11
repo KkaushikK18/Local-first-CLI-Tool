@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import path from 'path';
 
 export const statsCommand = new Command('stats')
-  .description('Display statistics about your learning progress')
+  .description('View learning analytics, streaks, and mastery progress')
   .action(async () => {
     const workspaceRoot = process.cwd();
     
@@ -14,94 +14,70 @@ export const statsCommand = new Command('stats')
       const db = new DatabaseService({ path: dbPath });
 
       const problems = db.getProblems({});
-      const totalProblems = problems.length;
-
-      if (totalProblems === 0) {
+      if (problems.length === 0) {
         console.log(chalk.yellow('No problems found in the vault yet. Capture some problems to see stats!'));
         db.close();
         return;
       }
 
       const stats = db.getStats();
+      const streaks = db.getStreakStats();
 
-      // We still need to calculate total reviews
-      const totalReviewsResult = db['db'].prepare('SELECT SUM(review_count) as total FROM reviews').get() as { total: number | null };
+      // Calculate total reviews
+      const totalReviewsResult = db.getRawDatabase().prepare('SELECT SUM(review_count) as total FROM reviews').get() as { total: number | null };
       const totalReviews = totalReviewsResult.total || 0;
+      const avgReviews = stats.totalProblems > 0 ? (totalReviews / stats.totalProblems).toFixed(1) : '0';
 
-      // To calculate streak, we need review history
-      // Better-SQLite3: we can just query review_history
-      const historyRows = db['db'].prepare('SELECT review_date FROM review_history ORDER BY review_date DESC').all() as { review_date: string }[];
-      
-      let streak = 0;
-      if (historyRows.length > 0) {
-        const uniqueDates = Array.from(new Set(historyRows.map(row => row.review_date.split('T')[0])));
-        
-        // Calculate streak
-        let currentDate = new Date();
-        currentDate.setHours(0, 0, 0, 0); // normalize time
-        
-        let expectedDateStr = currentDate.toISOString().split('T')[0];
-        
-        // Check if reviewed today, otherwise start checking from yesterday
-        if (uniqueDates[0] === expectedDateStr) {
-          streak++;
-          currentDate.setDate(currentDate.getDate() - 1);
-          expectedDateStr = currentDate.toISOString().split('T')[0];
-        } else {
-          currentDate.setDate(currentDate.getDate() - 1);
-          expectedDateStr = currentDate.toISOString().split('T')[0];
-          if (uniqueDates[0] === expectedDateStr) {
-            streak++; // Streak alive from yesterday
-            currentDate.setDate(currentDate.getDate() - 1);
-            expectedDateStr = currentDate.toISOString().split('T')[0];
-          }
-        }
+      console.log(chalk.bold.blue('\n📊 DSA Vault Analytics\n'));
 
-        for (let i = (streak > 0 && uniqueDates[0] !== new Date().toISOString().split('T')[0] ? 0 : 1); i < uniqueDates.length; i++) {
-          if (uniqueDates[i] === expectedDateStr) {
-            streak++;
-            currentDate.setDate(currentDate.getDate() - 1);
-            expectedDateStr = currentDate.toISOString().split('T')[0];
-          } else {
-            break;
-          }
-        }
+      // 1. Streaks
+      console.log(chalk.bold.magenta('🔥 Streaks & Activity'));
+      console.log(`Current Streak:    ${chalk.green(streaks.currentStreak + ' days')}`);
+      console.log(`Longest Streak:    ${chalk.cyan(streaks.longestStreak + ' days')}`);
+      console.log(`Total Active Days: ${streaks.totalReviewDays} days\n`);
+
+      // 2. Overall Progress
+      console.log(chalk.bold.magenta('📚 Vault Overview'));
+      console.log(`Total Problems:    ${stats.totalProblems}`);
+      console.log(`Total Reviews:     ${totalReviews} (${avgReviews} avg per problem)`);
+      console.log(`Due for Review:    ${stats.dueCount > 0 ? chalk.yellow(stats.dueCount) : chalk.green(0)}\n`);
+
+      // 5. Confidence Overview
+      if (Object.keys(stats.byConfidence).length > 0) {
+        console.log(chalk.bold.magenta('💪 Mastery Level (Confidence)'));
+        const strong = stats.byConfidence['strong'] || 0;
+        const medium = stats.byConfidence['medium'] || 0;
+        const weak = stats.byConfidence['weak'] || 0;
+        
+        console.log(`Strong: ${chalk.green('🟩'.repeat(strong))} ${strong}`);
+        console.log(`Medium: ${chalk.yellow('🟨'.repeat(medium))} ${medium}`);
+        console.log(`Weak:   ${chalk.red('🟥'.repeat(weak))} ${weak}\n`);
       }
 
-      const avgReviews = stats.totalProblems > 0 ? (totalReviews / stats.totalProblems).toFixed(1) : 0;
-
-      console.log(chalk.bold.magenta('\n=== DSA Vault Statistics ===\n'));
-      
-      console.log(chalk.bold.cyan('Overview'));
-      console.log(`Total Problems:  ${chalk.bold(stats.totalProblems)}`);
-      console.log(`Due for Review:  ${chalk.bold(stats.dueCount)}`);
-      console.log(`Current Streak:  ${chalk.bold(streak)} days`);
-      console.log(`Avg Reviews/Prob:${chalk.bold(avgReviews)}\n`);
-
-      console.log(chalk.bold.cyan('Mastery (Confidence)'));
-      console.log(`Strong: ${chalk.green(stats.byConfidence.strong || 0)}`);
-      console.log(`Medium: ${chalk.yellow(stats.byConfidence.medium || 0)}`);
-      console.log(`Weak:   ${chalk.red(stats.byConfidence.weak || 0)}\n`);
-
       const printMap = (title: string, map: Record<string, number>) => {
-        console.log(chalk.bold.cyan(title));
+        if (Object.keys(map).length === 0) return;
+        console.log(chalk.bold.magenta(title));
         Object.entries(map)
           .sort((a, b) => b[1] - a[1]) // Sort by count desc
           .forEach(([k, v]) => {
-            console.log(`${k.padEnd(15)} ${v}`);
+            console.log(`${k.padEnd(16)} ${v}`);
           });
         console.log();
       };
 
-      printMap('By Difficulty', stats.byDifficulty);
-      printMap('By Platform', stats.byPlatform);
-      printMap('Top Topics', stats.byTopic);
-      // Wait, language stats are not in getStats(). Let's calculate them quickly.
+      printMap('🌐 By Platform', stats.byPlatform);
+      printMap('📈 By Difficulty', stats.byDifficulty);
+      printMap('🧠 Top Topics', stats.byTopic);
+      
       const languageStats: Record<string, number> = {};
       for (const p of problems) {
-        languageStats[p.language] = (languageStats[p.language] || 0) + 1;
+        if (p.language && p.language.length <= 20) {
+          languageStats[p.language] = (languageStats[p.language] || 0) + 1;
+        } else {
+          languageStats['unknown'] = (languageStats['unknown'] || 0) + 1;
+        }
       }
-      printMap('By Language', languageStats);
+      printMap('💻 By Language', languageStats);
 
       db.close();
 
