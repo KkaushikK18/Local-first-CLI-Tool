@@ -35,6 +35,7 @@ export class GeeksForGeeksAdapter extends PlatformAdapter {
 
     // 1. Extract Title
     let title = await this.extractTextFromAny(page, [
+      'h3', // New GFG UI puts title in the first h3
       '.problems_problem_content__title > h3',
       '.problem-tab__name',
       'h3.bqpRbd', // newer UI class
@@ -45,11 +46,25 @@ export class GeeksForGeeksAdapter extends PlatformAdapter {
     }
 
     // 2. Extract Difficulty
-    const difficultyText = await this.extractTextFromAny(page, [
+    let difficultyText = await this.extractTextFromAny(page, [
       '.problems_problem_content__difficulty > span',
       '.problem-tab__difficulty',
       'span.S_Zk0', // newer UI class for difficulty
     ]);
+    
+    // If specific selectors fail, search all spans for difficulty keywords
+    if (!difficultyText) {
+      difficultyText = await page.evaluate(() => {
+        const spans = document.querySelectorAll('span, p, div, strong');
+        for (const s of Array.from(spans)) {
+          const txt = (s.textContent || '').trim().toLowerCase();
+          if (txt === 'easy' || txt === 'medium' || txt === 'hard' || txt === 'basic') {
+            return txt;
+          }
+        }
+        return null;
+      });
+    }
     
     let difficulty: 'Easy' | 'Medium' | 'Hard' = 'Medium'; // default
     if (difficultyText) {
@@ -79,6 +94,8 @@ export class GeeksForGeeksAdapter extends PlatformAdapter {
 
     // 4. Extract Description
     let description = await this.extractTextFromAny(page, [
+      '.problems_problem_content__Xm_eO', // New GFG hashed class
+      'div[class*="problem_content"]', // Fallback for hashes
       '.problems_problem_content__description',
       '.problem-statement',
     ]);
@@ -137,6 +154,14 @@ export class GeeksForGeeksAdapter extends PlatformAdapter {
         const hiddenTextarea = document.querySelector('.CodeMirror textarea, #code') as HTMLTextAreaElement;
         if (hiddenTextarea) {
           return hiddenTextarea.value;
+        }
+        
+        // Try Ace Editor
+        if (win.ace) {
+          const editorElement = document.querySelector('.ace_editor');
+          if (editorElement) {
+             return win.ace.edit(editorElement).getValue();
+          }
         }
 
         return '';

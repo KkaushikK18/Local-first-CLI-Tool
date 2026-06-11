@@ -4,6 +4,7 @@ import { captureCommand } from './commands/capture.js';
 import { reviewCommand } from './commands/review.js';
 import { statsCommand } from './commands/stats.js';
 import { searchCommand } from './commands/search.js';
+import { listCommand } from './commands/list.js';
 import { configCommand } from './commands/config.js';
 import { syncCommand } from './commands/sync.js';
 import { doctorCommand } from './commands/doctor.js';
@@ -22,7 +23,8 @@ program.addCommand(initCommand);
 program.addCommand(captureCommand);
 program.addCommand(reviewCommand);
 program.addCommand(statsCommand);
-program.addCommand(searchCommand);
+program.addCommand(searchCommand)
+  .addCommand(listCommand);
 program.addCommand(configCommand);
 program.addCommand(syncCommand);
 program.addCommand(doctorCommand);
