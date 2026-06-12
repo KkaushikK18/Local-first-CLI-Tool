@@ -124,7 +124,7 @@ export const reviewCommand = new Command('review')
         const validOutcome = outcome as ReviewOutcome;
         
         // Record the review
-        revisionEngine.recordReview(problem.metadata.url, validOutcome);
+        revisionEngine.recordReview(problem.id, validOutcome);
         
         reviewedCount++;
         sessionOutcomes[validOutcome]++;

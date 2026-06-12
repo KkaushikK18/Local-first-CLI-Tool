@@ -4,6 +4,7 @@ import { captureCommand } from './commands/capture.js';
 import { reviewCommand } from './commands/review.js';
 import { statsCommand } from './commands/stats.js';
 import { mockCommand } from './commands/mock.js';
+import { tuiCommand } from './commands/tui.js';
 import { searchCommand } from './commands/search.js';
 import { listCommand } from './commands/list.js';
 import { configCommand } from './commands/config.js';
@@ -25,6 +26,7 @@ program.addCommand(captureCommand);
 program.addCommand(reviewCommand);
 program.addCommand(statsCommand);
 program.addCommand(mockCommand);
+program.addCommand(tuiCommand);
 program.addCommand(searchCommand)
   .addCommand(listCommand);
 program.addCommand(configCommand);
